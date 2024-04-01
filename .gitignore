@@ -5,3 +5,5 @@ runs
 .vscode
 *.pth
 gan/tete.py
+gan/deconv.py
+gan/resnet.py
