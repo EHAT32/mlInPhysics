@@ -4,13 +4,14 @@ from torch.utils.data import random_split, DataLoader
 from argparse import ArgumentParser
 import torch.nn as nn
 import torch.optim as optim
-from gan import GAN
+from gan import GAN, Generator
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms.v2 as transforms
 import torchvision.datasets as dset
 import cv2
 import numpy as np
 from tqdm import tqdm
+import os
     
 class UnNormalize(object):
     def __init__(self, mean, std):
@@ -47,9 +48,9 @@ def main():
                                ]))
     lengths = [0.01, 0.98, 0.01]
     train, _, validate = random_split(dataset, lengths)
-    train_batch = 16
+    train_batch = 48
     train_loader = DataLoader(train, train_batch, shuffle=True)
-    validate_batch = 16
+    validate_batch = 48
     validation_loader = DataLoader(validate, validate_batch, shuffle=True)
     if torch.cuda.is_available():
         device = torch.device('cuda:0')
@@ -57,9 +58,11 @@ def main():
         device = torch.device('cpu')
         
     model = GAN().cuda()
+    # checkpoint = torch.load("./models_save/as_first/as_first_Resgenerator-1.pth")
+    # model.generator.load_state_dict(checkpoint)
+    checkpoint = torch.load("./models_save/new_dense_layer/discriminator-3.pth")
+    model.discriminator.load_state_dict(checkpoint)
     optimizer_G, optimizer_D = model.configure_optimizers()
-    
-        
     
     writer = SummaryWriter()
     num_epochs = 100
@@ -130,13 +133,13 @@ def main():
                 cv2.imshow('Two Images Side by Side', concatenated_image)
                 cv2.waitKey(1)
             
-            if epoch > 0: #pretraining dicriminator
-                opt_idx += 1
-                opt_idx = opt_idx % 2
+            # if epoch > 0: #pretraining dicriminator
+            opt_idx += 1
+            opt_idx = opt_idx % 2
+        torch.save(model.generator.state_dict(), f'./models_save/more_symmetric/generator-{epoch + 1}.pth')
+        torch.save(model.discriminator.state_dict(), f'./models_save/more_symmetric/discriminator-{epoch + 2}.pth')
     writer.close()
     # Save your trained model
-    torch.save(model.generator.state_dict(), 'generator.pth')
-    torch.save(model.discriminator.state_dict(), 'discriminator.pth')
         
     return 0
 if __name__ == '__main__':
