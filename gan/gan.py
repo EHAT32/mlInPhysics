@@ -1,42 +1,45 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet18, ResNet50_Weights, resnet50
+from resnet import ResNet18
 
+class ResnetGenerator(nn.Module):
+    def __init__(self):
+        super(ResnetGenerator, self).__init__()
+        ...
+
+class ResnetDiscriminator(nn.Module):
+    def __init__(self):
+        super(ResDiscriminator, self).__init__()
+        ...
 
 class Generator(nn.Module):
     def __init__(self, ngpu=1):
         nz = 100
         ngf = 64
         nc = 4
+        lin_hid_size = 8 * 8 * 1024
         super(Generator, self).__init__()
         self.ngpu = ngpu
         self.linear = nn.Sequential(
-            nn.Linear(nz, 2 * nz),
-            nn.BatchNorm1d(nz * 2),
-            nn.LeakyReLU(),
+           nn.Linear(nz, lin_hid_size),
+           nn.BatchNorm1d(lin_hid_size),
+           nn.LeakyReLU()
         )
         self.main = nn.Sequential(
-            # input is Z, going into a convolution
-            nn.ConvTranspose2d(2*nz, ngf * 8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf * 8),
-            nn.LeakyReLU(),
-            # state size. (ngf*8) x 4 x 4
-            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 4),
-            nn.LeakyReLU(),
-            # state size. (ngf*4) x 8 x 8
-            nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.LeakyReLU(),
-            # state size. (ngf*2) x 16 x 16
-            nn.ConvTranspose2d(ngf * 2,     ngf, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
-            nn.LeakyReLU(),
-            # state size. (ngf) x 32 x 32
-            nn.ConvTranspose2d(    ngf,      nc, 4, 2, 1, bias=False),
-            nn.Tanh()
-            # state size. (nc) x 64 x 64
+           nn.ConvTranspose2d(1024, 256, 2, 2),
+           nn.BatchNorm2d(256),
+           nn.LeakyReLU(),
+           nn.ConvTranspose2d(256, 64, 2, 2),
+           nn.BatchNorm2d(64),
+           nn.LeakyReLU(),
+           nn.ConvTranspose2d(64, 16, 2,2),
+           nn.BatchNorm2d(16),
+           nn.LeakyReLU(),
+           nn.ConvTranspose2d(16, 4, 1, 1),
+           nn.BatchNorm2d(4),
+           nn.Tanh()
         )
 
     def forward(self, input):
@@ -44,7 +47,7 @@ class Generator(nn.Module):
             output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
         else:
             output = self.linear(input)
-            output = output.unsqueeze(2).unsqueeze(3)
+            output = output.view(-1, 1024, 8, 8)
             output = self.main(output)
         return output
   
@@ -71,21 +74,38 @@ class Discriminator(nn.Module):
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout2d(p=0.3),
+            nn.Dropout2d(p=0.4),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
         
     def forward(self, input):
-        if input.is_cuda and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
-        else:
-            output = self.main(input)
-
+        output = self.main(input)
+        #ndf = 128
         return output.view(-1, 1).squeeze(1)
-        
-        
+
+class ResDiscriminator(nn.Module):
+    def __init__(self, ngpu=1):
+        super(ResDiscriminator, self).__init__()
+        self.adapter = nn.Sequential(
+                        nn.Conv2d(4, 3, 3, padding='same'),
+                        nn.BatchNorm2d(3),
+                        nn.ReLU()
+            )
+        self.res = resnet18(pretrained=False)
+        self.out = nn.Sequential(
+                          nn.Linear(1000, 1),
+                        nn.Sigmoid()
+                           )
+  
+    def forward(self, x):
+        output = self.adapter(x)
+        output = self.res(output)
+        output = self.out(output)
+        return output
+
+     
 class GAN(pl.LightningModule):
 
   def __init__(self):
