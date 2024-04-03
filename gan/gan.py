@@ -137,7 +137,8 @@ class GAN(pl.LightningModule):
     """
     
     # Sample noise
-    z = torch.randn(x.shape[0], 100, device=self.device)
+    batch_size = x.shape[0] if x.shape[0] > 1 else 2
+    z = torch.randn(batch_size, 100, device=self.device)
 
     # Generate images
     generated_imgs = self(z)
@@ -145,7 +146,8 @@ class GAN(pl.LightningModule):
     # Classify generated images
     # using the discriminator
     d_output = torch.squeeze(self.discriminator(generated_imgs))
-
+    if x.shape[0] <= 1:
+       d_output = d_output[0]
     # Backprop loss. We want to maximize the discriminator's
     # loss, which is equivalent to minimizing the loss with the true
     # labels flipped (i.e. y_true=1 for fake images). We do this
