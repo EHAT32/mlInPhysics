@@ -63,7 +63,7 @@ def main():
         #     row2 = np.concatenate((row2, pred[i + 6]), axis=1)
         # grid = np.concatenate((row1, row2))
         grid = cv2.cvtColor(row1, cv2.COLOR_RGBA2BGR)
-        image = cv2.resize(grid, None, fx = 4, fy = 4)
+        image = cv2.resize(grid, None, fx = 6, fy = 6)
         cv2.imshow('Pred', image)
         key = cv2.waitKey(0)
         if key == ord('q'):
