@@ -80,6 +80,7 @@ class SkinDataset(Dataset):
             x = Image.open(f).convert("RGBA")
         if self.transform:
             x = self.transform(x)
+        x = preprocess(x)
         # x = read_image(self.root + self.data[index])
         # x = convert_image_dtype(x)
         return x
