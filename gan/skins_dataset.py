@@ -43,6 +43,30 @@ elements_position = [[(8, 0), (8, 8), (0, 2)], [(40, 0), (8, 8), (0, 2)], #head 
                      [(44, 52), (4, 12), (2, 0)], [(60, 52), (4, 12), (2, 0)] #LArm back
                      ]
 
+def preprocess(x):
+    if len(x.shape) < 4:
+        x.unqueeze(0)
+    processed = torch.zeros((x.shape[0], 72 * 4, 12, 8), dtype=torch.float32)
+    for i in range(72):
+        element = elements_position[i]
+        posx, posy = element[0]
+        width, height = element[1]
+        offsetx, offsety = element[2]
+        processed[:, 4 * i : 4 * i + 4, offsetx : offsetx + width, offsety :offsety+ height] = x[:, :, posx:posx+width, posy:posy+height]
+    return processed
+        
+def postprocess(x):
+    if len(x.shape) < 4:
+        x.unsqueeze(0)
+    processed = torch.zeros((x.shape[0], 4, 64, 64), dtype=torch.float32)
+    for i in range(72):
+        element = elements_position[i]
+        posx, posy = element[0]
+        width, height = element[1]
+        offsetx, offsety = element[2]
+        processed[:, :, posx:posx + width, posy:posy+height] = processed[:, 4*i:4*i+4, offsetx:offsetx+width, offsety:offsety+height]
+    return processed
+
 class SkinDataset(Dataset):
     def __init__(self, root, transform=None):
         self.root = root + '/'
@@ -55,13 +79,10 @@ class SkinDataset(Dataset):
         if self.transform:
             x = self.transform(x)
         # x = read_image(self.root + self.data[index])
-        x = convert_image_dtype(x)
+        # x = convert_image_dtype(x)
         return x
     
-    def preprocess(x):
-        if len(x.shape) < 4:
-            x.unqueeze(0)
-        processed = torch.zeros((x.shape[0], 72 * 4, 12, 8))
+
         
     def __len__(self):
         return len(self.data)
