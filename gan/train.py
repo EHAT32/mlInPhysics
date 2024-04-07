@@ -43,7 +43,7 @@ def main():
     #                                transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5)))
     dataset =  SkinDataset(root=args.dataset_dir,
                                transform=transforms.Compose([
-                                   transforms.ToTensor(),
+                                   transforms.ToImage(), transforms.ToDtype(torch.float32, scale=True),
                                    transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5)),
                                ]))
     lengths = [0.9, 0.05, 0.05]
