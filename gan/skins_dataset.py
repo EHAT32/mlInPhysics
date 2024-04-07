@@ -4,10 +4,10 @@ import os
 from torchvision.io import read_image
 from torchvision.transforms.functional import convert_image_dtype
 from PIL import Image
-#[(posx, posy), (width, height), (offsetx, offsety)]
+#[(posy, posx), (height, width), (offsety, offsetx)]
 elements_position = [[(8, 0), (8, 8), (0, 2)], [(40, 0), (8, 8), (0, 2)], #head top
                      [(16, 0), (8, 8), (0, 2)], [(48, 0), (8, 8), (0, 2)], #head bottom
-                     [(0, 8), (8, 8), (0, 2)], [(32, 0), (8, 8), (0, 2)], #head right
+                     [(0, 8), (8, 8), (0, 2)], [(32, 8), (8, 8), (0, 2)], #head right
                      [(8, 8), (8, 8), (0, 2)], [(40, 8), (8, 8), (0, 2)], #head front
                      [(16, 8), (8, 8), (0, 2)], [(48, 8), (8, 8), (0, 2)], #head left
                      [(24, 8), (8, 8), (0, 2)], [(56, 8), (8, 8), (0, 2)], #head back
@@ -29,8 +29,8 @@ elements_position = [[(8, 0), (8, 8), (0, 2)], [(40, 0), (8, 8), (0, 2)], #head 
                      [(44, 20), (4, 12), (2, 0)], [(44, 36), (4, 12), (2, 0)], #RArm front
                      [(48, 20), (4, 12), (2, 0)], [(48, 36), (4, 12), (2, 0)], #RArm left
                      [(52, 20), (4, 12), (2, 0)], [(52, 36), (4, 12), (2, 0)], #RArm back
-                     [(20, 48), (4,4)], [(4, 48), (4, 4)], #LLeg top
-                     [(24, 48), (4, 4)], [(8, 48), (4, 4)], #LLeg bottom
+                     [(20, 48), (4,4), (2, 4)], [(4, 48), (4, 4), (2, 4)], #LLeg top
+                     [(24, 48), (4, 4), (2, 4)], [(8, 48), (4, 4), (2, 4)], #LLeg bottom
                      [(16, 52), (4, 12), (2, 0)], [(0, 52), (4, 12), (2, 0)], #LLeg right
                      [(20, 52), (4, 12), (2, 0)], [(4, 52), (4, 12), (2, 0)], #LLeg front
                      [(24, 52), (4, 12), (2, 0)], [(8, 52), (4, 12), (2, 0)], #LLeg left
@@ -44,27 +44,29 @@ elements_position = [[(8, 0), (8, 8), (0, 2)], [(40, 0), (8, 8), (0, 2)], #head 
                      ]
 
 def preprocess(x):
-    if len(x.shape) < 4:
-        x.unqueeze(0)
-    processed = torch.zeros((x.shape[0], 72 * 4, 12, 8), dtype=torch.float32)
+    x_ = torch.clone(x)
+    if len(x_.shape) < 4:
+        x_ = torch.unsqueeze(x_, 0)
+    processed = torch.zeros((x_.shape[0], 72 * 4, 12, 8), dtype=torch.float32)
     for i in range(72):
         element = elements_position[i]
-        posx, posy = element[0]
-        width, height = element[1]
-        offsetx, offsety = element[2]
-        processed[:, 4 * i : 4 * i + 4, offsetx : offsetx + width, offsety :offsety+ height] = x[:, :, posx:posx+width, posy:posy+height]
+        posy, posx = element[0]
+        height, width = element[1]
+        offsety, offsetx = element[2]
+        processed[:, 4 * i : 4 * i + 4, offsetx : offsetx + width, offsety :offsety+ height] = x_[:, :, posx:posx+width, posy:posy+height]
     return processed
         
 def postprocess(x):
-    if len(x.shape) < 4:
-        x.unsqueeze(0)
-    processed = torch.zeros((x.shape[0], 4, 64, 64), dtype=torch.float32)
+    x_ = torch.clone(x)
+    if len(x_.shape) < 4:
+        x_ = torch.unsqueeze(x_, 0)
+    processed = torch.zeros((x_.shape[0], 4, 64, 64), dtype=torch.float32)
     for i in range(72):
         element = elements_position[i]
-        posx, posy = element[0]
-        width, height = element[1]
-        offsetx, offsety = element[2]
-        processed[:, :, posx:posx + width, posy:posy+height] = processed[:, 4*i:4*i+4, offsetx:offsetx+width, offsety:offsety+height]
+        posy, posx = element[0]
+        height, width = element[1]
+        offsety, offsetx = element[2]
+        processed[:, :, posx:posx + width, posy:posy+height] = x_[:, 4*i:4*i+4, offsetx:offsetx+width, offsety:offsety+height]
     return processed
 
 class SkinDataset(Dataset):
