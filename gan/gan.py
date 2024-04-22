@@ -51,7 +51,123 @@ class Generator(nn.Module):
             output = self.main(output)
         return output
   
-  
+class ConvGenerator(nn.Module):
+    def __init__(self, ngpu=1):
+        super(ConvGenerator, self).__init__()
+        nz = 100
+        ngf = 64
+        nc = 4
+        lin_hid_size = 8 * 8 * 1024
+        self.ngpu = ngpu
+        self.main = nn.Sequential(
+           nn.Conv2d(nz, 256, 1, 1),
+           nn.BatchNorm2d(256),
+           nn.LeakyReLU(),
+           #256 x 1 x 1
+           nn.Conv2d(256, 1024, 1, 1),
+           nn.BatchNorm2d(1024),
+           nn.LeakyReLU(),
+           #1024 x 1 x 1
+           nn.Conv2d(1024, 4096, 1, 1),
+           nn.BatchNorm2d(4096),
+           nn.LeakyReLU(),
+           nn.Conv2d(4096, 4096, 1, 1),
+           nn.BatchNorm2d(4096),
+           nn.LeakyReLU(),
+           nn.Dropout2d(),
+           #4096 x 1 x 1
+           nn.Conv2d(4096, 16384, 1, 1),
+           nn.BatchNorm2d(16384),
+           nn.Tanh()
+           #16384 x 1 x 1
+        )
+
+    def forward(self, input):
+        output = input.view(-1, 100, 1, 1)
+        output = self.main(output)
+        output = output.view(-1, 4, 64, 64)
+        return output 
+
+class RectGenerator(nn.Module):
+    def __init__(self, ngpu=1):
+        super(RectGenerator, self).__init__()
+        nz = 100
+        ngf = 64
+        nc = 4
+        lin_hid_size = 3 * 2 * 4608
+        self.ngpu = ngpu
+        self.linear = nn.Sequential(
+            nn.Linear(nz, lin_hid_size),
+            nn.BatchNorm1d(lin_hid_size),
+            nn.LeakyReLU()
+        )
+        self.main = nn.Sequential(
+           #4608 x 3 x 2
+            nn.ConvTranspose2d(4608, 2304, (4, 3), 1),
+            nn.BatchNorm2d(2304),
+            nn.LeakyReLU(),
+            #2304 x 6 x 4
+            nn.ConvTranspose2d(2304, 1152, 2, 2),
+            nn.BatchNorm2d(1152),
+            nn.LeakyReLU(),
+            #1152 x 12 x 8
+            nn.Conv2d(1152, 576, 1,1),
+            nn.BatchNorm2d(576),
+            nn.LeakyReLU(),
+            #576 x 12 x 8
+            nn.Conv2d(576, 288, 1, 1),
+            nn.BatchNorm2d(288),
+            nn.Tanh()
+            # #288 x 12 x 8
+        )
+
+    def forward(self, input):
+        output = self.linear(input)
+        output = output.view(-1, 4608, 3, 2)
+        output = self.main(output)
+        return output
+
+class RectDiscriminator(nn.Module):
+    def __init__(self, ngpu=1):
+        super(RectDiscriminator, self).__init__()
+        nc = 288
+        ndf = 2 * nc
+        self.ngpu = ngpu
+        self.main = nn.Sequential(
+            # input is 288 x 12 x 8
+            nn.Conv2d(nc, ndf, 2, 2, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # # state size. 576 x 6 x 4
+            nn.Conv2d(ndf, ndf * 2, 2, 2, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # # state size. 1152 x 3 x 2
+            nn.Conv2d(ndf * 2, ndf * 4, (1, 2), (1, 2), bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            # # state size. 2304 x 3 x 1
+            nn.Conv2d(ndf * 4, ndf * 8, (2, 1), (2, 1), bias=False),
+            nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout2d(p=0.4),
+            # state size. 4608 x 1 x 1
+        )
+        self.out = nn.Sequential(
+           nn.Linear(4608, 1),
+           nn.Sigmoid()
+        )
+    def forward(self, input):
+        output = self.main(input)
+        if len(output.shape) < 4:
+           output = output.view(1, -1)
+        else:
+           output = output.squeeze()
+        output = self.out(output)
+        if len(output.shape) < 2:
+           return output
+        return output.squeeze(1)
+        # return output.view(-1, 1).squeeze(1)
+
 class Discriminator(nn.Module):
     def __init__(self, ngpu=1):
         ndf = 128
@@ -74,16 +190,53 @@ class Discriminator(nn.Module):
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout2d(p=0.4),
+            nn.Dropout2d(),
             # state size. (ndf*8) x 4 x 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
-        
     def forward(self, input):
         output = self.main(input)
         #ndf = 128
         return output.view(-1, 1).squeeze(1)
+class NewDiscriminator(nn.Module):
+    def __init__(self, ngpu=1):
+        super(NewDiscriminator, self).__init__()
+        ndf = 128
+        nc = 4
+        self.ngpu = ngpu
+        self.main = nn.Sequential(
+            # input is (nc) x 64 x 64
+            nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf) x 32 x 32
+            nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*2) x 16 x 16
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+            # state size. (ndf*4) x 8 x 8
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Dropout2d(),
+            # state size. (ndf*8) x 4 x 4
+            nn.Conv2d(ndf * 8, 2048, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(2048),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.linear = nn.Sequential(
+           nn.Linear(2048, 1),
+           nn.Sigmoid()
+        )
+    def forward(self, input):
+        output = self.main(input)
+        output = output.view(-1, 2048)
+        output = self.linear(output)
+        #ndf = 128
+        return output
 
 class ResDiscriminator(nn.Module):
     def __init__(self, ngpu=1):

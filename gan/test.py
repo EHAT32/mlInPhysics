@@ -45,7 +45,7 @@ def post_process(img):
 
 def main():
     model = Generator().cuda()
-    checkpoint = torch.load("./models_save/new_dense_layer/generator-5.pth")
+    checkpoint = torch.load("./models_save/final_on_small_set/generator-100.pth")
     model.load_state_dict(checkpoint)
     model.eval()
     save_path = "D:/python/mlInPhysics/dataset/results/"

@@ -45,15 +45,15 @@ elements_position = [[(8, 0), (8, 8), (0, 2)], [(40, 0), (8, 8), (0, 2)], #head 
 
 def preprocess(x):
     x_ = torch.clone(x)
-    if len(x_.shape) < 4:
-        x_ = torch.unsqueeze(x_, 0)
-    processed = torch.zeros((x_.shape[0], 72 * 4, 12, 8), dtype=torch.float32)
+    # if len(x_.shape) < 4:
+    #     x_ = torch.unsqueeze(x_, 0)
+    processed = torch.zeros((72 * 4, 12, 8), dtype=torch.float32)
     for i in range(72):
         element = elements_position[i]
         posy, posx = element[0]
         height, width = element[1]
         offsety, offsetx = element[2]
-        processed[:, 4 * i : 4 * i + 4, offsetx : offsetx + width, offsety :offsety+ height] = x_[:, :, posx:posx+width, posy:posy+height]
+        processed[4 * i : 4 * i + 4, offsetx : offsetx + width, offsety :offsety+ height] = x_[:, posx:posx+width, posy:posy+height]
     return processed
         
 def postprocess(x):
@@ -80,7 +80,7 @@ class SkinDataset(Dataset):
             x = Image.open(f).convert("RGBA")
         if self.transform:
             x = self.transform(x)
-        x = preprocess(x)
+        # x = preprocess(x)
         # x = read_image(self.root + self.data[index])
         # x = convert_image_dtype(x)
         return x

@@ -1,5 +1,5 @@
 import torch
-from skins_dataset import SkinDataset
+from skins_dataset import SkinDataset, postprocess
 from torch.utils.data import random_split, DataLoader
 from argparse import ArgumentParser
 import torch.nn as nn
@@ -49,18 +49,18 @@ def main():
     lengths = [0.9, 0.05, 0.05]
     train, _, validate = random_split(dataset, lengths)
     train_batch = 4
-    train_loader = DataLoader(train, train_batch, shuffle=True)
+    train_loader = DataLoader(train, train_batch, shuffle=True, num_workers=4, drop_last=True)
     validate_batch = 4
-    validation_loader = DataLoader(validate, validate_batch, shuffle=True)
+    validation_loader = DataLoader(validate, validate_batch, shuffle=True, num_workers=4)
     if torch.cuda.is_available():
         device = torch.device('cuda:0')
     else:
         device = torch.device('cpu')
         
     model = GAN().cuda()
-    checkpoint = torch.load("./models_save/new_dense_layer/generator-1.pth")
+    checkpoint = torch.load("./final_model/generator-5.pth")
     model.generator.load_state_dict(checkpoint)
-    checkpoint = torch.load("./models_save/new_dense_layer/discriminator-1.pth")
+    checkpoint = torch.load("./final_model/discriminator-5.pth")
     model.discriminator.load_state_dict(checkpoint)
     optimizer_G, optimizer_D = model.configure_optimizers()
     
@@ -122,7 +122,9 @@ def main():
                 
                 rand_noise = torch.randn(4, 100, device=device)
                 pred = model.generator(rand_noise).detach()
-                pred = torch.permute(unnorm(pred), (0, 2, 3, 1)).cpu().numpy()
+                pred = unnorm(pred)
+                # pred = postprocess(pred)
+                pred = torch.permute(pred, (0, 2, 3, 1)).cpu().numpy()
                 row1 = pred[0]
                 # row2=pred[5]
                 for i in range(3):
@@ -137,11 +139,10 @@ def main():
             # if epoch > 0: #pretraining dicriminator
             opt_idx += 1
             opt_idx = opt_idx % 2
-        torch.save(model.generator.state_dict(), f'./models_save/new_dense_layer/narrow_generator-{epoch + 1}.pth')
-        torch.save(model.discriminator.state_dict(), f'./models_save/new_dense_layer/narrow_discriminator-{epoch + 1}.pth')
+        torch.save(model.generator.state_dict(), f'./models_save/final_on_full_set/generator-{epoch + 1}.pth')
+        torch.save(model.discriminator.state_dict(), f'./models_save/final_on_full_set/discriminator-{epoch + 1}.pth')
          
     writer.close()
-    # Save your trained model
         
     return 0
 if __name__ == '__main__':
