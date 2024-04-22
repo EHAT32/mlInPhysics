@@ -3,7 +3,9 @@ __pycache__
 dataset
 runs
 .vscode
-*.pth
+as_first_Resdiscriminator-1.pth
 gan/tete.py
 gan/deconv.py
 gan/resnet.py
+gan/models_save
+gan/final_model
